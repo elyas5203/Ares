@@ -1,17 +1,18 @@
-# competitor_analysis.py
-
-import requests
-from bs4 import BeautifulSoup
 import instaloader
+from bs4 import BeautifulSoup
+import requests
 import logging
+from config import INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD
 
-# تنظیمات اولیه
+# تنظیمات لاگ‌گیری
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# لیست رقبا
+# لیست وب‌سایت‌ها و صفحات اینستاگرام رقبا
 COMPETITOR_WEBSITES = [
-    "https://noline.one/",
-    "https://www.ketabane.org/"
+    "https://padidehtahrir.com/",
+    "https://www.tahrireashrafi.com/",
+    "https://tahrirbazar.com/",
+    "https://www.bazaresefid.com/"
 ]
 
 COMPETITOR_INSTAGRAMS = [
@@ -24,64 +25,62 @@ COMPETITOR_INSTAGRAMS = [
     "parkerbookstore"
 ]
 
-def scrape_website_title(url: str):
-    """
-    عنوان یک صفحه وب را استخراج می‌کند.
-    """
+def get_website_title(url):
+    """دریافت عنوان یک وب‌سایت"""
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
-        return soup.title.string.strip() if soup.title else "عنوان یافت نشد"
-    except requests.exceptions.RequestException as e:
-        logging.error(f"خطا در دسترسی به وب‌سایت {url}: {e}")
+        return soup.title.string if soup.title else "بدون عنوان"
+    except requests.RequestException as e:
+        logging.error(f"خطا در دسترسی به {url}: {e}")
         return None
 
-def get_instagram_profile_info(username: str):
-    """
-    اطلاعات اولیه یک پروفایل اینستاگرام را دریافت می‌کند.
-    """
-    L = instaloader.Instaloader()
+def get_instagram_profile_data(username, L):
+    """دریافت اطلاعات یک پروفایل اینستاگرام"""
     try:
         profile = instaloader.Profile.from_username(L.context, username)
         return {
-            "username": profile.username,
+            "username": username,
             "followers": profile.followers,
             "followees": profile.followees,
-            "posts_count": profile.mediacount,
-            "biography": profile.biography
+            "posts": profile.mediacount
         }
     except Exception as e:
         logging.error(f"خطا در دریافت اطلاعات پروفایل {username}: {e}")
         return None
 
 def run_analysis():
-    """
-    تحلیل رقبا را اجرا کرده و نتایج را برمی‌گرداند.
-    """
-    analysis_results = {"websites": [], "instagrams": []}
+    """اجرای کامل فرآیند تحلیل رقبا"""
 
+    # تحلیل وب‌سایت‌ها
     logging.info("شروع تحلیل وب‌سایت‌های رقبا...")
-    for site in COMPETITOR_WEBSITES:
-        title = scrape_website_title(site)
+    website_data = []
+    for url in COMPETITOR_WEBSITES:
+        title = get_website_title(url)
         if title:
-            analysis_results["websites"].append({"url": site, "title": title})
+            website_data.append({"url": url, "title": title})
 
+    # تحلیل اینستاگرام با لاگین
     logging.info("شروع تحلیل پروفایل‌های اینستاگرام رقبا...")
-    for profile_user in COMPETITOR_INSTAGRAMS:
-        info = get_instagram_profile_info(profile_user)
-        if info:
-            analysis_results["instagrams"].append(info)
+    L = instaloader.Instaloader()
+    try:
+        if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD and INSTAGRAM_USERNAME != "YOUR_INSTAGRAM_USERNAME":
+            logging.info(f"در حال لاگین به اینستاگرام با حساب کاربری: {INSTAGRAM_USERNAME}")
+            L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+            logging.info("لاگین موفقیت‌آمیز بود.")
+        else:
+            logging.warning("نام کاربری یا رمز عبور اینستاگرام در config.py تنظیم نشده است. تحلیل بدون لاگین انجام می‌شود.")
+    except Exception as e:
+        logging.error(f"خطا در لاگین به اینستاگرام: {e}. تحلیل بدون لاگین ادامه می‌یابد.")
 
-    return analysis_results
+    instagram_data = []
+    for username in COMPETITOR_INSTAGRAMS:
+        profile_data = get_instagram_profile_data(username, L)
+        if profile_data:
+            instagram_data.append(profile_data)
 
-if __name__ == '__main__':
-    # برای تست مستقیم این ماژول
-    results = run_analysis()
-    print("--- نتایج تحلیل وب‌سایت‌ها ---")
-    for res in results['websites']:
-        print(f"آدرس: {res['url']}, عنوان: {res['title']}")
-
-    print("\n--- نتایج تحلیل اینستاگرام ---")
-    for res in results['instagrams']:
-        print(f"نام کاربری: {res['username']}, دنبال‌کننده: {res['followers']}, بیوگرافی: {res['biography'][:50]}...")
+    return {
+        "websites": website_data,
+        "instagrams": instagram_data
+    }
