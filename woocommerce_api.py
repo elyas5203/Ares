@@ -3,10 +3,16 @@
 import requests
 import os
 
-# اطلاعات سایت ووکامرس شما
+# --- اطلاعات جدید ووکامرس با دسترسی خواندن/نوشتن ---
 WC_API_URL = "https://tahrirchishop.com/wp-json/wc/v3/"
-WC_CONSUMER_KEY = "ck_738bb0cc5f34a6493b51e6240ad999a764dc5f3e"
-WC_CONSUMER_SECRET = "cs_aa44d5b29581d6ea928bac99cb6867b0aa85e009"
+WC_CONSUMER_KEY = "ck_fc708afdcf9e8794477b1866d60724891253836b"
+WC_CONSUMER_SECRET = "cs_1b804cc5ff0931ae30f5c0c8c384555fb5e8696f"
+
+# --- اطلاعات کاربری وردپرس برای آپلود رسانه ---
+# این بخش بدون تغییر باقی می‌ماند
+WP_USERNAME = "mtahrirchi"
+WP_APPLICATION_PASSWORD = "yfC9 0w9t W5Yb wep2 sSV0 aiTh"
+WP_API_URL = "https://tahrirchishop.com/wp-json/wp/v2/media"
 
 
 def create_product_draft(product_data: dict):
@@ -23,9 +29,10 @@ def create_product_draft(product_data: dict):
         response = requests.post(
             url,
             auth=(WC_CONSUMER_KEY, WC_CONSUMER_SECRET),
-            json=product_data
+            json=product_data,
+            timeout=20 # افزایش زمان انتظار برای جلوگیری از تایم‌اوت
         )
-        response.raise_for_status()  # اگر خطای HTTP رخ داد، exception ایجاد می‌کند
+        response.raise_for_status()
 
         new_product = response.json()
         product_id = new_product.get('id')
@@ -33,14 +40,18 @@ def create_product_draft(product_data: dict):
 
         return {
             "success": True,
-            "message": f"پیش‌نویس محصول با موفقیت ایجاد شد.",
+            "message": f"پیش‌نویس محصول با شناسه {product_id} با موفقیت ایجاد شد.",
             "edit_link": edit_link
         }
 
     except requests.exceptions.RequestException as e:
         error_message = f"خطا در ارتباط با ووکامرس: {e}"
         if e.response is not None:
-            error_message += f"\nپاسخ سرور: {e.response.text}"
+            try:
+                error_details = e.response.json()
+                error_message += f"\nپاسخ سرور: {error_details.get('message', e.response.text)}"
+            except ValueError:
+                 error_message += f"\nپاسخ سرور: {e.response.text}"
 
         return {
             "success": False,
@@ -48,10 +59,6 @@ def create_product_draft(product_data: dict):
             "edit_link": None
         }
 
-# اطلاعات کاربری وردپرس برای آپلود رسانه
-WP_USERNAME = "mtahrirchi"
-WP_APPLICATION_PASSWORD = "yfC9 0w9t W5Yb wep2 sSV0 aiTh"
-WP_API_URL = "https://tahrirchishop.com/wp-json/wp/v2/media"
 
 def upload_image_to_wordpress(image_path: str, product_name: str):
     """
@@ -60,28 +67,37 @@ def upload_image_to_wordpress(image_path: str, product_name: str):
     if not os.path.exists(image_path):
         return None, "فایل عکس یافت نشد."
 
-    with open(image_path, 'rb') as img:
-        file_name = os.path.basename(image_path)
+    # استفاده از نام محصول برای عنوان و متن جایگزین تصویر
+    file_name = os.path.basename(image_path)
 
-        headers = {
-            'Content-Disposition': f'attachment; filename={file_name}',
-            'Content-Type': 'image/jpeg',
-        }
+    headers = {
+        'Content-Disposition': f'attachment; filename={file_name}',
+        'Content-Type': 'image/jpeg',
+        'Title': product_name,
+        'Caption': product_name,
+        'Description': f'تصویر محصول {product_name}'
+    }
 
-        try:
+    try:
+        with open(image_path, 'rb') as img:
             response = requests.post(
                 WP_API_URL,
                 auth=(WP_USERNAME, WP_APPLICATION_PASSWORD),
                 headers=headers,
-                data=img
+                data=img,
+                timeout=20
             )
-            response.raise_for_status()
+        response.raise_for_status()
 
-            media_data = response.json()
-            return media_data.get('id'), "آپلود موفقیت‌آمیز بود."
+        media_data = response.json()
+        return media_data.get('id'), "آپلود موفقیت‌آمیز بود."
 
-        except requests.exceptions.RequestException as e:
-            error_message = f"خطا در آپلود عکس: {e}"
-            if e.response is not None:
+    except requests.exceptions.RequestException as e:
+        error_message = f"خطا در آپلود عکس: {e}"
+        if e.response is not None:
+            try:
+                error_details = e.response.json()
+                error_message += f"\nپاسخ سرور: {error_details.get('message', e.response.text)}"
+            except ValueError:
                 error_message += f"\nپاسخ سرور: {e.response.text}"
-            return None, error_message
+        return None, error_message
