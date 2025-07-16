@@ -15,7 +15,6 @@ from product_manager import handle_new_product_submission
 # فایل تحلیل رقبا
 from competitor_analysis import run_analysis
 # فایل‌های تنظیمات
-from config import INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD
 from woocommerce_api import WC_API_URL, WC_CONSUMER_KEY, WC_CONSUMER_SECRET
 
 
