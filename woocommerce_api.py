@@ -70,12 +70,16 @@ def upload_image_to_wordpress(image_path: str, product_name: str):
     # استفاده از نام محصول برای عنوان و متن جایگزین تصویر
     file_name = os.path.basename(image_path)
 
+    # برای جلوگیری از خطای انکدینگ با حروف فارسی در هدرها، آن‌ها را به صورت دستی UTF-8 انکد می‌کنیم.
+    encoded_product_name = product_name.encode('utf-8')
+    encoded_description = f'تصویر محصول {product_name}'.encode('utf-8')
+
     headers = {
         'Content-Disposition': f'attachment; filename={file_name}',
         'Content-Type': 'image/jpeg',
-        'Title': product_name,
-        'Caption': product_name,
-        'Description': f'تصویر محصول {product_name}'
+        'Title': encoded_product_name,
+        'Caption': encoded_product_name,
+        'Description': encoded_description
     }
 
     try:
