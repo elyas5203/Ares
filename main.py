@@ -58,11 +58,20 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     message = update.message
     photo = message.photo[-1]
-    product_name = message.caption
+    caption = message.caption
 
-    if not product_name:
+    if not caption:
         await message.reply_text("❌ **خطا:** لطفاً نام محصول را در کپشن (متن زیر عکس) وارد کنید.")
         return
+
+    # بررسی برای دسته‌بندی دستی (فرمت: نام محصول # دسته‌بندی)
+    if '#' in caption:
+        parts = caption.split('#', 1)
+        product_name = parts[0].strip()
+        manual_category = parts[1].strip()
+    else:
+        product_name = caption.strip()
+        manual_category = None
 
     try:
         file = await photo.get_file()
@@ -72,8 +81,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await file.download_to_drive(local_image_path)
         await message.reply_text(f"✅ عکس برای محصول «{product_name}» دریافت شد. لطفاً چند لحظه صبر کنید...")
 
-        # فراخوانی تابع اصلی از ماژول product_manager
-        result = handle_new_product_submission(local_image_path, product_name)
+        # فراخوانی تابع اصلی با پارامتر جدید manual_category
+        result = handle_new_product_submission(local_image_path, product_name, manual_category)
 
         if result and result.get("success"):
             reply_message = (

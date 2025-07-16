@@ -15,15 +15,24 @@ def get_smart_category(product_name: str, categories: list):
     # ساخت لیست نام دسته‌بندی‌ها برای ارسال به مدل
     category_names = [cat['name'] for cat in categories]
 
+    # پرامپت بهبود یافته برای افزایش دقت و اطمینان
     prompt = f"""
-    You are an expert AI for an online stationery shop.
-    Your task is to categorize a new product.
-    Product Name: "{product_name}"
-    Available Categories: {category_names}
+    You are a precise categorization AI for "Tahrirchi Shop", an online stationery store.
+    Your goal is to assign a product to its single most relevant category from a given list.
 
-    Based on the product name, which is the single most appropriate category from the list?
-    Respond with the category name only, exactly as it appears in the list.
-    For example, if the best category is "Pens", your response should be just "Pens".
+    Product Name: "{product_name}"
+    Available Categories: {json.dumps(category_names)}
+
+    Analyze the product name and determine which one of the available categories is the best fit.
+    Your response MUST be ONLY the name of the chosen category, exactly as it appears in the list.
+    Do not add any explanation, punctuation, or other text.
+    If no category is a good fit, respond with "متفرقه".
+
+    Example:
+    Product Name: " روان‌نویس نوک نمدی استدلر"
+    Available Categories: ["خودکار و روان‌نویس", "دفتر", "لوازم طراحی"]
+    Your Response:
+    خودکار و روان‌نویس
     """
 
     try:
@@ -75,9 +84,10 @@ def generate_product_description(product_name: str):
         return f"توضیحات محصول {product_name}" # بازگرداندن یک متن پیش‌فرض در صورت خطا
 
 
-def handle_new_product_submission(local_image_path: str, product_name: str):
+def handle_new_product_submission(local_image_path: str, product_name: str, manual_category: str = None):
     """
     فرآیند کامل و هوشمند ثبت یک محصول جدید را مدیریت می‌کند.
+    به دسته‌بندی دستی اولویت می‌دهد.
     """
     # مرحله ۱: آپلود عکس
     print("مرحله ۱: در حال آپلود تصویر به وردپرس...")
@@ -90,10 +100,23 @@ def handle_new_product_submission(local_image_path: str, product_name: str):
     print("مرحله ۲: در حال دریافت دسته‌بندی‌ها از ووکامرس...")
     categories = get_product_categories()
 
-    # مرحله ۳: انتخاب هوشمند دسته‌بندی
+    # مرحله ۳: تعیین دسته‌بندی (دستی یا هوشمند)
     category_id = None
-    if categories:
-        print("مرحله ۳: در حال انتخاب هوشمند دسته‌بندی...")
+    if manual_category:
+        print(f"مرحله ۳: در حال جستجو برای دسته‌بندی دستی: '{manual_category}'")
+        # پیدا کردن شناسه برای دسته‌بندی دستی
+        cat_found = False
+        for cat in categories:
+            if cat['name'].lower() == manual_category.lower():
+                category_id = cat['id']
+                cat_found = True
+                print(f"دسته‌بندی دستی '{manual_category}' با شناسه {category_id} یافت شد.")
+                break
+        if not cat_found:
+            print(f"هشدار: دسته‌بندی دستی '{manual_category}' یافت نشد. انتخاب هوشمند انجام می‌شود.")
+
+    if not category_id and categories:
+        print("مرحله ۳: دسته‌بندی دستی مشخص نشده یا یافت نشد. در حال انتخاب هوشمند دسته‌بندی...")
         category_id = get_smart_category(product_name, categories)
 
     # مرحله ۴: تولید خودکار توضیحات
