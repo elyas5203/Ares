@@ -35,7 +35,7 @@ def generate_product_description(product_name: str):
         return f"توضیحات محصول {product_name}" # بازگرداندن یک متن پیش‌فرض در صورت خطا
 
 
-def handle_new_product_submission(local_image_path: str = None, product_name: str, category_id: int = None, category_name: str = None, description: str = None, price: str = None):
+def handle_new_product_submission(product_name: str, local_image_path: str = None, category_id: int = None, category_name: str = None, description: str = None, price: str = None):
     """
     فرآیند کامل ثبت یک محصول جدید را مدیریت می‌کند.
     می‌تواند با عکس یا بدون عکس، و با دسته‌بندی دستی یا انتخابی کار کند.

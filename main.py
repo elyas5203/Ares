@@ -84,7 +84,7 @@ async def handle_category_selection(update: Update, context: ContextTypes.DEFAUL
     await query.edit_message_text(text=f"✅ دسته‌بندی انتخاب شد. در حال ایجاد پیش‌نویس محصول «{product_name}»...")
 
     # فراخوانی تابع اصلی با شناسه دسته‌بندی مشخص
-    result = handle_new_product_submission(local_image_path, product_name, category_id)
+    result = handle_new_product_submission(product_name=product_name, local_image_path=local_image_path, category_id=category_id)
 
     if result and result.get("success"):
         reply_message = (
@@ -202,7 +202,6 @@ async def add_product_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         # در این حالت چون عکسی نداریم، local_image_path را None می‌فرستیم
         result = handle_new_product_submission(
-            local_image_path=None,
             product_name=name,
             category_name=category_name,
             description=description,
