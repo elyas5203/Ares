@@ -4,7 +4,6 @@ import instaloader
 from bs4 import BeautifulSoup
 import requests
 import logging
-from config import INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD
 
 # تنظیمات لاگ‌گیری
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -53,8 +52,8 @@ def get_instagram_profile_data(username, L):
         logging.error(f"خطا در دریافت اطلاعات پروفایل {username}: {e}")
         return None
 
-def run_analysis():
-    """اجرای کامل فرآیند تحلیل رقبا"""
+def run_analysis(username, password):
+    """اجرای کامل فرآیند تحلیل رقبا با استفاده از اطلاعات لاگین."""
 
     # تحلیل وب‌سایت‌ها
     logging.info("شروع تحلیل وب‌سایت‌های رقبا...")
@@ -73,23 +72,22 @@ def run_analysis():
 
     is_logged_in = False
     try:
-        if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD and INSTAGRAM_USERNAME != "YOUR_INSTAGRAM_USERNAME":
-            logging.info(f"در حال لاگین به اینستاگرام با حساب کاربری: {INSTAGRAM_USERNAME}")
-            L.load_session_from_file(INSTAGRAM_USERNAME)
-            logging.info("لاگین از طریق سشن موفقیت‌آمیز بود.")
-            is_logged_in = True
-        else:
-            logging.warning("نام کاربری یا رمز عبور اینستاگرام در config.py تنظیم نشده است.")
-    except FileNotFoundError:
-        logging.warning("فایل سشن اینستاگرام یافت نشد. تلاش برای لاگین با رمز عبور...")
-        try:
-            if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD and INSTAGRAM_USERNAME != "YOUR_INSTAGRAM_USERNAME":
-                L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-                L.save_session_to_file()
+        if username and password:
+            logging.info(f"در حال لاگین به اینستاگرام با حساب کاربری: {username}")
+            try:
+                L.load_session_from_file(username)
+                logging.info("لاگین از طریق سشن موفقیت‌آمیز بود.")
+                is_logged_in = True
+            except FileNotFoundError:
+                logging.warning("فایل سشن اینستاگرام یافت نشد. تلاش برای لاگین با رمز عبور...")
+                L.login(username, password)
+                L.save_session_to_file(username)
                 logging.info("لاگین با رمز عبور موفقیت‌آمیز بود و سشن ذخیره شد.")
                 is_logged_in = True
-        except Exception as e:
-            logging.error(f"خطا در لاگین به اینستاگرام با رمز عبور: {e}")
+        else:
+            logging.warning("نام کاربری یا رمز عبور اینستاگرام ارائه نشده است.")
+    except Exception as e:
+        logging.error(f"خطا در لاگین به اینستاگرام: {e}")
 
     if not is_logged_in:
         logging.error("امکان لاگین به اینستاگرام وجود ندارد. تحلیل اینستاگرام ممکن است با خطا مواجه شود.")

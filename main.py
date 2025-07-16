@@ -22,6 +22,10 @@ from woocommerce_api import WC_API_URL, WC_CONSUMER_KEY, WC_CONSUMER_SECRET
 # --- توکن ربات تلگرام ---
 TELEGRAM_BOT_TOKEN = "7557627836:AAEgfoM8VVZqwbblTSFLMeLRJUYieAMKrzI"
 
+# --- اطلاعات لاگین اینستاگرام ---
+INSTAGRAM_USERNAME = "@test.elyas"
+INSTAGRAM_PASSWORD = "Elyas_5203"
+
 # --- تنظیمات کلی ---
 TEMP_IMAGE_DIR = "temp_images"
 if not os.path.exists(TEMP_IMAGE_DIR):
@@ -232,7 +236,8 @@ async def analyze_competitors_command(update: Update, context: ContextTypes.DEFA
     """دستور شروع تحلیل رقبا."""
     await update.message.reply_text("شروع فرآیند تحلیل رقبا... این ممکن است چند دقیقه طول بکشد.")
     try:
-        results = run_analysis()
+        # پاس دادن اطلاعات لاگین به تابع
+        results = run_analysis(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
         response_text = "📊 **نتایج اولیه تحلیل رقبا** 📊\n\n"
         response_text += "🌐 **وب‌سایت‌ها:**\n"
         for site in results.get('websites', []):
