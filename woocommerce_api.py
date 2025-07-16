@@ -47,3 +47,41 @@ def create_product_draft(product_data: dict):
             "message": error_message,
             "edit_link": None
         }
+
+# اطلاعات کاربری وردپرس برای آپلود رسانه
+WP_USERNAME = "mtahrirchi"
+WP_APPLICATION_PASSWORD = "yfC9 0w9t W5Yb wep2 sSV0 aiTh"
+WP_API_URL = "https://tahrirchishop.com/wp-json/wp/v2/media"
+
+def upload_image_to_wordpress(image_path: str, product_name: str):
+    """
+    یک عکس را در کتابخانه رسانه وردپرس آپلود می‌کند.
+    """
+    if not os.path.exists(image_path):
+        return None, "فایل عکس یافت نشد."
+
+    with open(image_path, 'rb') as img:
+        file_name = os.path.basename(image_path)
+
+        headers = {
+            'Content-Disposition': f'attachment; filename={file_name}',
+            'Content-Type': 'image/jpeg',
+        }
+
+        try:
+            response = requests.post(
+                WP_API_URL,
+                auth=(WP_USERNAME, WP_APPLICATION_PASSWORD),
+                headers=headers,
+                data=img
+            )
+            response.raise_for_status()
+
+            media_data = response.json()
+            return media_data.get('id'), "آپلود موفقیت‌آمیز بود."
+
+        except requests.exceptions.RequestException as e:
+            error_message = f"خطا در آپلود عکس: {e}"
+            if e.response is not None:
+                error_message += f"\nپاسخ سرور: {e.response.text}"
+            return None, error_message
