@@ -9,15 +9,20 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters, CallbackQueryHandler
 
 # ماژول‌های پروژه
-from woocommerce_api import create_product_draft, get_product_categories, WC_API_URL, WC_CONSUMER_KEY, WC_CONSUMER_SECRET
-from competitor_analysis import run_analysis
+# فایل‌های ووکامرس و مدیریت محصول
+from woocommerce_api import get_product_categories
 from product_manager import handle_new_product_submission
+# فایل تحلیل رقبا
+from competitor_analysis import run_analysis
+# فایل‌های تنظیمات
 from config import INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD
+from woocommerce_api import WC_API_URL, WC_CONSUMER_KEY, WC_CONSUMER_SECRET
+
 
 # --- توکن ربات تلگرام ---
 TELEGRAM_BOT_TOKEN = "7557627836:AAEgfoM8VVZqwbblTSFLMeLRJUYieAMKrzI"
 
-# --- تنظیمات ---
+# --- تنظیمات کلی ---
 TEMP_IMAGE_DIR = "temp_images"
 if not os.path.exists(TEMP_IMAGE_DIR):
     os.makedirs(TEMP_IMAGE_DIR)
@@ -27,77 +32,34 @@ logging.basicConfig(
     level=logging.INFO
 )
 logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("instaloader").setLevel(logging.INFO)
 
-# --- توابع مربوط به دستورات ---
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """پاسخ به دستور /start و نمایش راهنما."""
+# =================================================================
+# --- توابع اصلی ربات ---
+# =================================================================
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """پاسخ به دستور /start و نمایش راهنمای کامل."""
     welcome_message = (
         "سلام! من دستیار هوشمند «تحریرچی شاپ» هستم.\n\n"
-        "می‌توانید از دستورات زیر استفاده کنید:\n\n"
+        "قابلیت‌های من:\n\n"
         "📸 **افزودن محصول با عکس:**\n"
-        "یک عکس از محصول ارسال کنید و نام محصول را در کپشن بنویسید.\n\n"
+        "یک عکس از محصول ارسال کنید و نام محصول را در کپشن بنویسید. من از شما دسته‌بندی را خواهم پرسید.\n\n"
         "📝 **/addproduct** `نام; قیمت; توضیحات; [دسته‌بندی]`\n"
-        "افزودن محصول به صورت متنی (دسته‌بندی اختیاری است).\n\n"
+        "افزودن محصول به صورت متنی. دسته‌بندی اختیاری است.\n\n"
         "📈 **/analyze**\n"
-        "شروع تحلیل اولیه رقبا.\n\n"
+        "تحلیل رقبا در وب و اینستاگرام.\n\n"
         "🩺 **/health**\n"
-        "بررسی وضعیت اتصال به سرویس‌ها.\n\n"
+        "بررسی وضعیت اتصال به سرویس‌های حیاتی.\n\n"
         "🤖 **گفتگو با من:**\n"
-        "هر پیام متنی دیگری را برای من ارسال کنید تا با هوش مصنوعی به شما پاسخ دهم."
+        "هر پیام متنی دیگری را برای من ارسال کنید تا با هوش مصنوعی به شما پاسخ دهم. من مکالمات را به خاطر می‌سپارم!"
     )
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=welcome_message
-    )
+    await update.message.reply_text(welcome_message)
 
 
-async def handle_category_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """مرحله دوم: پردازش انتخاب دسته‌بندی کاربر و ایجاد محصول."""
-    query = update.callback_query
-    await query.answer()
-
-    callback_data = query.data
-    category_id = None
-
-    if callback_data == "cat_cancel":
-        await query.edit_message_text(text="❌ عملیات لغو شد.")
-        context.user_data.pop('product_name', None)
-        context.user_data.pop('image_path', None)
-        return
-
-    if callback_data != "cat_misc":
-        category_id = int(callback_data.split('_')[1])
-
-    product_name = context.user_data.get('product_name')
-    local_image_path = context.user_data.get('image_path')
-
-    if not product_name or not local_image_path:
-        await query.edit_message_text(text="⚠️ خطایی رخ داد. لطفاً دوباره عکس را ارسال کنید.")
-        return
-
-    await query.edit_message_text(text=f"✅ دسته‌بندی انتخاب شد. در حال ایجاد پیش‌نویس محصول «{product_name}»...")
-
-    result = handle_new_product_submission(product_name=product_name, local_image_path=local_image_path, category_id=category_id)
-
-    if result and result.get("success"):
-        reply_message = (
-            f"🎉 پیش‌نویس محصول با موفقیت ایجاد شد!\n\n"
-            f"🔸 **نام محصول:** {product_name}\n"
-            f"👇 برای تکمیل اطلاعات و انتشار، از لینک زیر استفاده کنید:\n"
-            f"{result.get('edit_link')}"
-        )
-        await query.message.reply_text(reply_message)
-    else:
-        error_msg = result.get('message') if result else "یک خطای ناشناخته رخ داد."
-        await query.message.reply_text(f"❗️ متاسفانه در ایجاد محصول خطایی رخ داد:\n\n{error_msg}")
-
-    context.user_data.pop('product_name', None)
-    context.user_data.pop('image_path', None)
-
-
-async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """مرحله اول: دریافت عکس و نمایش دکمه‌های دسته‌بندی."""
+async def handle_photo_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """مرحله ۱: دریافت عکس و نمایش دکمه‌های دسته‌بندی."""
     message = update.message
     photo = message.photo[-1]
     product_name = message.caption
@@ -121,7 +83,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         keyboard = [[InlineKeyboardButton(cat['name'], callback_data=f"cat_{cat['id']}")] for cat in categories]
-        keyboard.append([InlineKeyboardButton("🗂️ متفرقه", callback_data="cat_misc")])
+        keyboard.append([InlineKeyboardButton("🗂️ متفرقه (بدون دسته‌بندی)", callback_data="cat_misc")])
         keyboard.append([InlineKeyboardButton("❌ لغو", callback_data="cat_cancel")])
 
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -132,25 +94,66 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=reply_markup
         )
     except Exception as e:
-        logging.error(f"Error in handle_photo: {e}")
+        logging.error(f"Error in handle_photo_message: {e}")
         await message.reply_text("یک خطای پیش‌بینی‌نشده در پردازش عکس رخ داد.")
 
 
-async def add_product_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_category_selection_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """مرحله ۲: پردازش انتخاب دسته‌بندی کاربر و ایجاد محصول."""
+    query = update.callback_query
+    await query.answer()
+
+    callback_data = query.data
+    category_id = None
+
+    if callback_data == "cat_cancel":
+        await query.edit_message_text(text="❌ عملیات لغو شد.")
+        context.user_data.clear()
+        return
+
+    if callback_data != "cat_misc":
+        category_id = int(callback_data.split('_')[1])
+
+    product_name = context.user_data.get('product_name')
+    local_image_path = context.user_data.get('image_path')
+
+    if not product_name or not local_image_path:
+        await query.edit_message_text(text="⚠️ خطایی رخ داد (اطلاعات محصول یافت نشد). لطفاً دوباره عکس را ارسال کنید.")
+        return
+
+    await query.edit_message_text(text=f"✅ دسته‌بندی انتخاب شد. در حال ایجاد پیش‌نویس برای «{product_name}»...")
+
+    result = handle_new_product_submission(product_name=product_name, local_image_path=local_image_path, category_id=category_id)
+
+    if result and result.get("success"):
+        reply_message = (
+            f"🎉 پیش‌نویس محصول با موفقیت ایجاد شد!\n\n"
+            f"🔸 **نام محصول:** {product_name}\n"
+            f"👇 برای تکمیل اطلاعات و انتشار، از لینک زیر استفاده کنید:\n"
+            f"{result.get('edit_link')}"
+        )
+        await query.message.reply_text(reply_message)
+    else:
+        error_msg = result.get('message') if result else "یک خطای ناشناخته رخ داد."
+        await query.message.reply_text(f"❗️ متاسفانه در ایجاد محصول خطایی رخ داد:\n\n{error_msg}")
+
+    context.user_data.clear()
+
+
+async def add_product_text_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """دستور افزودن محصول به صورت متنی."""
     try:
         command_text = ' '.join(context.args)
         parts = [p.strip() for p in command_text.split(';')]
 
-        num_parts = len(parts)
-        if num_parts < 3:
-            await update.message.reply_text("فرمت صحیح:\n/addproduct نام محصول; قیمت; توضیحات; [نام دسته‌بندی]")
+        if len(parts) < 3:
+            await update.message.reply_text("فرمت صحیح:\n/addproduct نام; قیمت; توضیحات; [نام دسته‌بندی]")
             return
 
         name, price, description = parts[0], parts[1], parts[2]
-        category_name = parts[3] if num_parts > 3 else None
+        category_name = parts[3] if len(parts) > 3 else None
 
-        await update.message.reply_text("در حال ایجاد پیش‌نویس محصول... لطفاً صبر کنید.")
+        await update.message.reply_text("در حال ایجاد پیش‌نویس محصول...")
 
         result = handle_new_product_submission(
             product_name=name,
@@ -165,7 +168,7 @@ async def add_product_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             response_text = f"خطا در ایجاد محصول: {result.get('message', 'خطای ناشناخته')}"
         await update.message.reply_text(response_text)
     except Exception as e:
-        logging.error(f"Error in add_product_command: {e}")
+        logging.error(f"Error in add_product_text_command: {e}")
         await update.message.reply_text("متاسفانه در پردازش درخواست شما خطایی رخ داد.")
 
 
@@ -173,6 +176,7 @@ async def health_check_command(update: Update, context: ContextTypes.DEFAULT_TYP
     """بررسی وضعیت اتصال به سرویس‌های حیاتی."""
     await update.message.reply_text("در حال بررسی وضعیت سیستم...")
 
+    # بررسی ووکامرس
     wc_status = "❌ قطع"
     try:
         response = requests.get(f"{WC_API_URL.replace('/wc/v3/', '/wc/v3')}", auth=(WC_CONSUMER_KEY, WC_CONSUMER_SECRET), timeout=10)
@@ -181,6 +185,7 @@ async def health_check_command(update: Update, context: ContextTypes.DEFAULT_TYP
     except Exception as e:
         logging.error(f"Health Check - WooCommerce Error: {e}")
 
+    # بررسی Ollama
     ollama_status = "❌ قطع"
     try:
         ollama.list()
@@ -189,20 +194,19 @@ async def health_check_command(update: Update, context: ContextTypes.DEFAULT_TYP
         logging.error(f"Health Check - Ollama Error: {e}")
 
     report = (
-        "🩺 **گزارش وضعیت سیستم** 🩺\n\n"
+        f"🩺 **گزارش وضعیت سیستم** 🩺\n\n"
         f"**WooCommerce API:** {wc_status}\n"
         f"**Ollama (Llama 3):** {ollama_status}\n\n"
         "اگر سرویسی قطع است، لطفاً موارد زیر را بررسی کنید:\n"
-        "- **Ollama:** مطمئن شوید که سرویس Ollama روی سیستم شما در حال اجرا است.\n"
+        "- **Ollama:** مطمئن شوید که سرویس Ollama روی کامپیوتر شما در حال اجرا است.\n"
         "- **WooCommerce:** از صحت کلیدهای API و اتصال اینترنت مطمئن شوید."
     )
     await update.message.reply_text(report)
 
 
-async def llm_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def llm_chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """پاسخ هوشمند با استفاده از Llama 3 و حافظه گفتگو."""
     user_message = update.message.text
-    chat_id = update.effective_chat.id
 
     if 'history' not in context.user_data:
         context.user_data['history'] = []
@@ -221,7 +225,7 @@ async def llm_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ai_response = "متاسفانه در ارتباط با مدل هوش مصنوعی خطایی رخ داد."
         context.user_data['history'].pop()
 
-    await context.bot.send_message(chat_id=chat_id, text=ai_response)
+    await update.message.reply_text(ai_response)
 
 
 async def analyze_competitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -253,13 +257,16 @@ def main():
     print("در حال ساخت اپلیکیشن ربات...")
     application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
-    application.add_handler(CommandHandler('start', start))
-    application.add_handler(CommandHandler('addproduct', add_product_command))
+    # ثبت دستورات
+    application.add_handler(CommandHandler('start', start_command))
+    application.add_handler(CommandHandler('addproduct', add_product_text_command))
     application.add_handler(CommandHandler('analyze', analyze_competitors_command))
-    application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-    application.add_handler(CallbackQueryHandler(handle_category_selection))
     application.add_handler(CommandHandler('health', health_check_command))
-    application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), llm_response))
+
+    # ثبت هندلرهای پیام
+    application.add_handler(MessageHandler(filters.PHOTO, handle_photo_message))
+    application.add_handler(CallbackQueryHandler(handle_category_selection_callback))
+    application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), llm_chat_handler))
 
     print("ربات با موفقیت شروع به کار کرد... برای توقف Ctrl+C را بزنید.")
     application.run_polling()

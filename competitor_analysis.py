@@ -1,3 +1,5 @@
+# competitor_analysis.py
+
 import instaloader
 from bs4 import BeautifulSoup
 import requests
@@ -28,10 +30,10 @@ COMPETITOR_INSTAGRAMS = [
 def get_website_title(url):
     """دریافت عنوان یک وب‌سایت"""
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=15)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
-        return soup.title.string if soup.title else "بدون عنوان"
+        return soup.title.string.strip() if soup.title else "بدون عنوان"
     except requests.RequestException as e:
         logging.error(f"خطا در دسترسی به {url}: {e}")
         return None
@@ -39,6 +41,7 @@ def get_website_title(url):
 def get_instagram_profile_data(username, L):
     """دریافت اطلاعات یک پروفایل اینستاگرام"""
     try:
+        logging.info(f"در حال دریافت اطلاعات برای پروفایل: {username}")
         profile = instaloader.Profile.from_username(L.context, username)
         return {
             "username": username,
@@ -63,16 +66,33 @@ def run_analysis():
 
     # تحلیل اینستاگرام با لاگین
     logging.info("شروع تحلیل پروفایل‌های اینستاگرام رقبا...")
-    L = instaloader.Instaloader()
+    L = instaloader.Instaloader(
+        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+        compress_json=False
+    )
+
+    is_logged_in = False
     try:
         if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD and INSTAGRAM_USERNAME != "YOUR_INSTAGRAM_USERNAME":
             logging.info(f"در حال لاگین به اینستاگرام با حساب کاربری: {INSTAGRAM_USERNAME}")
-            L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-            logging.info("لاگین موفقیت‌آمیز بود.")
+            L.load_session_from_file(INSTAGRAM_USERNAME)
+            logging.info("لاگین از طریق سشن موفقیت‌آمیز بود.")
+            is_logged_in = True
         else:
-            logging.warning("نام کاربری یا رمز عبور اینستاگرام در config.py تنظیم نشده است. تحلیل بدون لاگین انجام می‌شود.")
-    except Exception as e:
-        logging.error(f"خطا در لاگین به اینستاگرام: {e}. تحلیل بدون لاگین ادامه می‌یابد.")
+            logging.warning("نام کاربری یا رمز عبور اینستاگرام در config.py تنظیم نشده است.")
+    except FileNotFoundError:
+        logging.warning("فایل سشن اینستاگرام یافت نشد. تلاش برای لاگین با رمز عبور...")
+        try:
+            if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD and INSTAGRAM_USERNAME != "YOUR_INSTAGRAM_USERNAME":
+                L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+                L.save_session_to_file()
+                logging.info("لاگین با رمز عبور موفقیت‌آمیز بود و سشن ذخیره شد.")
+                is_logged_in = True
+        except Exception as e:
+            logging.error(f"خطا در لاگین به اینستاگرام با رمز عبور: {e}")
+
+    if not is_logged_in:
+        logging.error("امکان لاگین به اینستاگرام وجود ندارد. تحلیل اینستاگرام ممکن است با خطا مواجه شود.")
 
     instagram_data = []
     for username in COMPETITOR_INSTAGRAMS:

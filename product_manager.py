@@ -1,16 +1,14 @@
 # product_manager.py
 
-from woocommerce_api import upload_image_to_wordpress, create_product_draft, get_product_categories
 import os
 import ollama
-import json
-
-
+from woocommerce_api import upload_image_to_wordpress, create_product_draft, get_product_categories
 
 def generate_product_description(product_name: str):
     """
     با استفاده از Llama 3، توضیحات محصول را تولید می‌کند.
     """
+    print(f"شروع تولید توضیحات برای: {product_name}")
     prompt = f"""
     You are a creative copywriter for an online stationery shop called "Tahrirchi Shop".
     Your task is to write a compelling and friendly product description for a new item.
@@ -28,53 +26,52 @@ def generate_product_description(product_name: str):
             messages=[{'role': 'user', 'content': prompt}]
         )
         description = response['message']['content'].strip()
-        print(f"مدل هوش مصنوعی توضیحات زیر را تولید کرد:\n---\n{description}\n---")
+        print(f"توضیحات تولید شده: {description}")
         return description
     except Exception as e:
         print(f"خطا در ارتباط با Ollama برای تولید توضیحات: {e}")
-        return f"توضیحات محصول {product_name}" # بازگرداندن یک متن پیش‌فرض در صورت خطا
+        return f"توضیحات محصول {product_name}"
 
-
-def handle_new_product_submission(product_name: str, local_image_path: str = None, category_id: int = None, category_name: str = None, description: str = None, price: str = None):
+def handle_new_product_submission(
+    product_name: str,
+    local_image_path: str = None,
+    category_id: int = None,
+    category_name: str = None,
+    description: str = None,
+    price: str = None
+):
     """
     فرآیند کامل ثبت یک محصول جدید را مدیریت می‌کند.
-    می‌تواند با عکس یا بدون عکس، و با دسته‌بندی دستی یا انتخابی کار کند.
     """
     image_id = None
     if local_image_path:
-        # مرحله ۱ (در صورت وجود عکس): آپلود عکس
-        print(f"مرحله ۱: در حال آپلود تصویر برای محصول «{product_name}»...")
+        print(f"آپلود تصویر: {local_image_path}")
         image_id, upload_message = upload_image_to_wordpress(local_image_path, product_name)
         if not image_id:
             return {"success": False, "message": f"آپلود عکس ناموفق بود. خطا: {upload_message}", "edit_link": None}
-        print(f"آپلود موفقیت‌آمیز بود. شناسه عکس: {image_id}")
+        print(f"آپلود موفقیت‌آمیز. شناسه عکس: {image_id}")
 
-    # مرحله ۲: تعیین توضیحات
-    if not description:
-        # اگر توضیحات به صورت دستی ارائه نشده بود، آن را تولید کن
-        print("مرحله ۲: در حال تولید خودکار توضیحات محصول...")
-        description = generate_product_description(product_name)
-    else:
-        print("مرحله ۲: استفاده از توضیحات دستی ارائه شده.")
+    final_description = description
+    if not final_description:
+        final_description = generate_product_description(product_name)
 
-    # مرحله ۳: تعیین دسته‌بندی
     final_category_id = category_id
     if category_name and not final_category_id:
-        print(f"مرحله ۳: در حال جستجو برای دسته‌بندی متنی: '{category_name}'")
+        print(f"جستجو برای دسته‌بندی متنی: '{category_name}'")
         categories = get_product_categories()
-        for cat in categories:
-            if cat['name'].lower() == category_name.lower():
-                final_category_id = cat['id']
-                print(f"دسته‌بندی متنی '{category_name}' با شناسه {final_category_id} یافت شد.")
-                break
+        cat_found = next((cat for cat in categories if cat['name'].lower() == category_name.lower()), None)
+        if cat_found:
+            final_category_id = cat_found['id']
+            print(f"دسته‌بندی متنی '{category_name}' با شناسه {final_category_id} یافت شد.")
+        else:
+            print(f"هشدار: دسته‌بندی متنی '{category_name}' یافت نشد.")
 
-    # مرحله ۴: آماده‌سازی و ایجاد پیش‌نویس محصول
-    print(f"مرحله ۴: در حال ایجاد پیش‌نویس با دسته‌بندی ID: {final_category_id}...")
+    print(f"ایجاد پیش‌نویس محصول با نام: {product_name}, دسته‌بندی ID: {final_category_id}")
     product_data = {
         'name': product_name,
         'type': 'simple',
         'status': 'draft',
-        'description': description,
+        'description': final_description,
     }
     if price:
         product_data['regular_price'] = price
@@ -85,11 +82,10 @@ def handle_new_product_submission(product_name: str, local_image_path: str = Non
 
     result = create_product_draft(product_data)
 
-    # پاک کردن فایل موقت در صورت وجود
     if local_image_path:
         try:
             os.remove(local_image_path)
-            print(f"فایل موقت '{local_image_path}' با موفقیت پاک شد.")
+            print(f"فایل موقت '{local_image_path}' پاک شد.")
         except OSError as e:
             print(f"خطا در پاک کردن فایل موقت: {e}")
 
