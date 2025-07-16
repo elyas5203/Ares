@@ -40,8 +40,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "می‌توانید از دستورات زیر استفاده کنید:\n\n"
         "📸 **افزودن محصول با عکس:**\n"
         "یک عکس از محصول ارسال کنید و نام محصول را در کپشن (متن زیر عکس) بنویسید.\n\n"
-        "📝 **/addproduct** `نام;قیمت;توضیح`\n"
-        "افزودن محصول به صورت متنی.\n\n"
+        "📝 **/addproduct** `نام; قیمت; توضیحات; [دسته‌بندی]`\n"
+        "افزودن محصول به صورت متنی (دسته‌بندی اختیاری است).\n\n"
         "📈 **/analyze**\n"
         "شروع تحلیل اولیه رقبا.\n\n"
         "🤖 **گفتگو با من:**\n"
@@ -178,22 +178,44 @@ async def analyze_competitors_command(update: Update, context: ContextTypes.DEFA
 
 
 async def add_product_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """دستور افزودن محصول به صورت متنی."""
+    """
+    دستور افزودن محصول به صورت متنی.
+    فرمت: /addproduct نام; قیمت; توضیحات; [دسته‌بندی]
+    """
     try:
-        parts = ' '.join(context.args).split(';')
-        if len(parts) < 3:
-            await update.message.reply_text("لطفاً از فرمت صحیح استفاده کنید:\n/addproduct نام محصول; قیمت; توضیحات")
+        # جدا کردن آرگومان‌ها از دستور
+        command_text = ' '.join(context.args)
+        parts = [p.strip() for p in command_text.split(';')]
+
+        num_parts = len(parts)
+        if num_parts < 3:
+            await update.message.reply_text(
+                "فرمت صحیح:\n"
+                "/addproduct نام محصول; قیمت; توضیحات; [نام دسته‌بندی]"
+            )
             return
 
-        name, price, description = (p.strip() for p in parts)
-        product_data = {'name': name, 'type': 'simple', 'regular_price': price, 'description': description}
+        name, price, description = parts[0], parts[1], parts[2]
+        category_name = parts[3] if num_parts > 3 else None
+
         await update.message.reply_text("در حال ایجاد پیش‌نویس محصول... لطفاً صبر کنید.")
-        result = create_product_draft(product_data)
-        if result["success"]:
+
+        # در این حالت چون عکسی نداریم، local_image_path را None می‌فرستیم
+        result = handle_new_product_submission(
+            local_image_path=None,
+            product_name=name,
+            category_name=category_name,
+            description=description,
+            price=price
+        )
+
+        if result and result.get("success"):
             response_text = f"{result['message']}\n\nبرای بازبینی و انتشار، روی لینک زیر کلیک کنید:\n{result['edit_link']}"
         else:
-            response_text = f"خطا در ایجاد محصول: {result['message']}"
+            response_text = f"خطا در ایجاد محصول: {result.get('message', 'خطای ناشناخته')}"
+
         await update.message.reply_text(response_text)
+
     except Exception as e:
         logging.error(f"Error in add_product_command: {e}")
         await update.message.reply_text("متاسفانه در پردازش درخواست شما خطایی رخ داد.")

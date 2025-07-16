@@ -35,40 +35,62 @@ def generate_product_description(product_name: str):
         return f"توضیحات محصول {product_name}" # بازگرداندن یک متن پیش‌فرض در صورت خطا
 
 
-def handle_new_product_submission(local_image_path: str, product_name: str, category_id: int = None):
+def handle_new_product_submission(local_image_path: str = None, product_name: str, category_id: int = None, category_name: str = None, description: str = None, price: str = None):
     """
-    فرآیند کامل و هوشمند ثبت یک محصول جدید را با استفاده از دسته‌بندی انتخابی مدیریت می‌کند.
+    فرآیند کامل ثبت یک محصول جدید را مدیریت می‌کند.
+    می‌تواند با عکس یا بدون عکس، و با دسته‌بندی دستی یا انتخابی کار کند.
     """
-    # مرحله ۱: آپلود عکس
-    print(f"مرحله ۱: در حال آپلود تصویر برای محصول «{product_name}»...")
-    image_id, upload_message = upload_image_to_wordpress(local_image_path, product_name)
-    if not image_id:
-        return {"success": False, "message": f"آپلود عکس ناموفق بود. خطا: {upload_message}", "edit_link": None}
-    print(f"آپلود موفقیت‌آمیز بود. شناسه عکس: {image_id}")
+    image_id = None
+    if local_image_path:
+        # مرحله ۱ (در صورت وجود عکس): آپلود عکس
+        print(f"مرحله ۱: در حال آپلود تصویر برای محصول «{product_name}»...")
+        image_id, upload_message = upload_image_to_wordpress(local_image_path, product_name)
+        if not image_id:
+            return {"success": False, "message": f"آپلود عکس ناموفق بود. خطا: {upload_message}", "edit_link": None}
+        print(f"آپلود موفقیت‌آمیز بود. شناسه عکس: {image_id}")
 
-    # مرحله ۲: تولید خودکار توضیحات
-    print("مرحله ۲: در حال تولید خودکار توضیحات محصول...")
-    description = generate_product_description(product_name)
+    # مرحله ۲: تعیین توضیحات
+    if not description:
+        # اگر توضیحات به صورت دستی ارائه نشده بود، آن را تولید کن
+        print("مرحله ۲: در حال تولید خودکار توضیحات محصول...")
+        description = generate_product_description(product_name)
+    else:
+        print("مرحله ۲: استفاده از توضیحات دستی ارائه شده.")
 
-    # مرحله ۳: آماده‌سازی و ایجاد پیش‌نویس محصول
-    print(f"مرحله ۳: در حال ایجاد پیش‌نویس با دسته‌بندی ID: {category_id}...")
+    # مرحله ۳: تعیین دسته‌بندی
+    final_category_id = category_id
+    if category_name and not final_category_id:
+        print(f"مرحله ۳: در حال جستجو برای دسته‌بندی متنی: '{category_name}'")
+        categories = get_product_categories()
+        for cat in categories:
+            if cat['name'].lower() == category_name.lower():
+                final_category_id = cat['id']
+                print(f"دسته‌بندی متنی '{category_name}' با شناسه {final_category_id} یافت شد.")
+                break
+
+    # مرحله ۴: آماده‌سازی و ایجاد پیش‌نویس محصول
+    print(f"مرحله ۴: در حال ایجاد پیش‌نویس با دسته‌بندی ID: {final_category_id}...")
     product_data = {
         'name': product_name,
         'type': 'simple',
         'status': 'draft',
         'description': description,
-        'images': [{'id': image_id}]
     }
-    if category_id:
-        product_data['categories'] = [{'id': category_id}]
+    if price:
+        product_data['regular_price'] = price
+    if image_id:
+        product_data['images'] = [{'id': image_id}]
+    if final_category_id:
+        product_data['categories'] = [{'id': final_category_id}]
 
     result = create_product_draft(product_data)
 
-    # پاک کردن فایل موقت
-    try:
-        os.remove(local_image_path)
-        print(f"فایل موقت '{local_image_path}' با موفقیت پاک شد.")
-    except OSError as e:
-        print(f"خطا در پاک کردن فایل موقت: {e}")
+    # پاک کردن فایل موقت در صورت وجود
+    if local_image_path:
+        try:
+            os.remove(local_image_path)
+            print(f"فایل موقت '{local_image_path}' با موفقیت پاک شد.")
+        except OSError as e:
+            print(f"خطا در پاک کردن فایل موقت: {e}")
 
     return result
