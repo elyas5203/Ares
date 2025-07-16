@@ -5,7 +5,7 @@ import os
 import ollama
 
 from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters, CallbackQueryHandler
 
 # ماژول‌های پروژه
 from woocommerce_api import create_product_draft
