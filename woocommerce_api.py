@@ -105,3 +105,27 @@ def upload_image_to_wordpress(image_path: str, product_name: str):
             except ValueError:
                 error_message += f"\nپاسخ سرور: {e.response.text}"
         return None, error_message
+
+
+def get_product_categories():
+    """
+    لیست تمام دسته‌بندی‌های محصولات را از ووکامرس دریافت می‌کند.
+    """
+    endpoint = "products/categories"
+    url = WC_API_URL + endpoint
+
+    try:
+        response = requests.get(
+            url,
+            auth=(WC_CONSUMER_KEY, WC_CONSUMER_SECRET),
+            params={'per_page': 100} # دریافت حداکثر 100 دسته‌بندی
+        )
+        response.raise_for_status()
+
+        categories = response.json()
+        # فقط نام و شناسه دسته‌بندی‌هایی که محصول دارند را برمی‌گردانیم
+        return [{"id": cat["id"], "name": cat["name"]} for cat in categories if cat["count"] > 0]
+
+    except requests.exceptions.RequestException as e:
+        print(f"خطا در دریافت دسته‌بندی‌ها: {e}")
+        return []
