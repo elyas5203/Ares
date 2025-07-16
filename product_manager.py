@@ -5,55 +5,6 @@ import os
 import ollama
 import json
 
-def get_smart_category(product_name: str, categories: list):
-    """
-    با استفاده از Llama 3، بهترین دسته‌بندی را برای محصول انتخاب می‌کند.
-    """
-    if not categories:
-        return None
-
-    # ساخت لیست نام دسته‌بندی‌ها برای ارسال به مدل
-    category_names = [cat['name'] for cat in categories]
-
-    # پرامپت بهبود یافته برای افزایش دقت و اطمینان
-    prompt = f"""
-    You are a precise categorization AI for "Tahrirchi Shop", an online stationery store.
-    Your goal is to assign a product to its single most relevant category from a given list.
-
-    Product Name: "{product_name}"
-    Available Categories: {json.dumps(category_names)}
-
-    Analyze the product name and determine which one of the available categories is the best fit.
-    Your response MUST be ONLY the name of the chosen category, exactly as it appears in the list.
-    Do not add any explanation, punctuation, or other text.
-    If no category is a good fit, respond with "متفرقه".
-
-    Example:
-    Product Name: " روان‌نویس نوک نمدی استدلر"
-    Available Categories: ["خودکار و روان‌نویس", "دفتر", "لوازم طراحی"]
-    Your Response:
-    خودکار و روان‌نویس
-    """
-
-    try:
-        response = ollama.chat(
-            model='llama3:latest',
-            messages=[{'role': 'user', 'content': prompt}]
-        )
-        chosen_category_name = response['message']['content'].strip()
-
-        # پیدا کردن شناسه دسته‌بندی انتخاب شده
-        for cat in categories:
-            if cat['name'] == chosen_category_name:
-                print(f"مدل هوش مصنوعی دسته‌بندی '{chosen_category_name}' را انتخاب کرد.")
-                return cat['id']
-
-        print(f"هشدار: مدل دسته‌بندی '{chosen_category_name}' را انتخاب کرد که در لیست موجود نیست.")
-        return None
-
-    except Exception as e:
-        print(f"خطا در ارتباط با Ollama برای انتخاب دسته‌بندی: {e}")
-        return None
 
 
 def generate_product_description(product_name: str):
@@ -84,47 +35,23 @@ def generate_product_description(product_name: str):
         return f"توضیحات محصول {product_name}" # بازگرداندن یک متن پیش‌فرض در صورت خطا
 
 
-def handle_new_product_submission(local_image_path: str, product_name: str, manual_category: str = None):
+def handle_new_product_submission(local_image_path: str, product_name: str, category_id: int = None):
     """
-    فرآیند کامل و هوشمند ثبت یک محصول جدید را مدیریت می‌کند.
-    به دسته‌بندی دستی اولویت می‌دهد.
+    فرآیند کامل و هوشمند ثبت یک محصول جدید را با استفاده از دسته‌بندی انتخابی مدیریت می‌کند.
     """
     # مرحله ۱: آپلود عکس
-    print("مرحله ۱: در حال آپلود تصویر به وردپرس...")
+    print(f"مرحله ۱: در حال آپلود تصویر برای محصول «{product_name}»...")
     image_id, upload_message = upload_image_to_wordpress(local_image_path, product_name)
     if not image_id:
         return {"success": False, "message": f"آپلود عکس ناموفق بود. خطا: {upload_message}", "edit_link": None}
-    print(f"آپلود عکس موفقیت‌آمیز بود. شناسه عکس: {image_id}")
+    print(f"آپلود موفقیت‌آمیز بود. شناسه عکس: {image_id}")
 
-    # مرحله ۲: دریافت دسته‌بندی‌ها از سایت
-    print("مرحله ۲: در حال دریافت دسته‌بندی‌ها از ووکامرس...")
-    categories = get_product_categories()
-
-    # مرحله ۳: تعیین دسته‌بندی (دستی یا هوشمند)
-    category_id = None
-    if manual_category:
-        print(f"مرحله ۳: در حال جستجو برای دسته‌بندی دستی: '{manual_category}'")
-        # پیدا کردن شناسه برای دسته‌بندی دستی
-        cat_found = False
-        for cat in categories:
-            if cat['name'].lower() == manual_category.lower():
-                category_id = cat['id']
-                cat_found = True
-                print(f"دسته‌بندی دستی '{manual_category}' با شناسه {category_id} یافت شد.")
-                break
-        if not cat_found:
-            print(f"هشدار: دسته‌بندی دستی '{manual_category}' یافت نشد. انتخاب هوشمند انجام می‌شود.")
-
-    if not category_id and categories:
-        print("مرحله ۳: دسته‌بندی دستی مشخص نشده یا یافت نشد. در حال انتخاب هوشمند دسته‌بندی...")
-        category_id = get_smart_category(product_name, categories)
-
-    # مرحله ۴: تولید خودکار توضیحات
-    print("مرحله ۴: در حال تولید خودکار توضیحات محصول...")
+    # مرحله ۲: تولید خودکار توضیحات
+    print("مرحله ۲: در حال تولید خودکار توضیحات محصول...")
     description = generate_product_description(product_name)
 
-    # مرحله ۵: آماده‌سازی و ایجاد پیش‌نویس محصول
-    print("مرحله ۵: در حال ایجاد پیش‌نویس محصول در ووکامرس...")
+    # مرحله ۳: آماده‌سازی و ایجاد پیش‌نویس محصول
+    print(f"مرحله ۳: در حال ایجاد پیش‌نویس با دسته‌بندی ID: {category_id}...")
     product_data = {
         'name': product_name,
         'type': 'simple',
