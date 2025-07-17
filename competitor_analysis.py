@@ -1,9 +1,10 @@
 # competitor_analysis.py
 
-import instaloader
 from bs4 import BeautifulSoup
 import requests
 import logging
+
+from config import INSTAGRAM_ACCESS_TOKEN
 
 # تنظیمات لاگ‌گیری
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -37,22 +38,38 @@ def get_website_title(url):
         logging.error(f"خطا در دسترسی به {url}: {e}")
         return None
 
-def get_instagram_profile_data(username, L):
-    """دریافت اطلاعات یک پروفایل اینستاگرام"""
-    try:
-        logging.info(f"در حال دریافت اطلاعات برای پروفایل: {username}")
-        profile = instaloader.Profile.from_username(L.context, username)
-        return {
-            "username": username,
-            "followers": profile.followers,
-            "followees": profile.followees,
-            "posts": profile.mediacount
-        }
-    except Exception as e:
-        logging.error(f"خطا در دریافت اطلاعات پروفایل {username}: {e}")
+def get_instagram_profile_data(username):
+    """دریافت اطلاعات یک پروفایل اینستاگرام با استفاده از Instagram Graph API"""
+    if not INSTAGRAM_ACCESS_TOKEN or INSTAGRAM_ACCESS_TOKEN == "YOUR_ACCESS_TOKEN":
+        logging.error("توکن دسترسی اینستاگرام در فایل config.py تنظیم نشده است.")
         return None
 
-from config import INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD
+    try:
+        # دریافت ID عددی کاربر
+        url = f"https://graph.facebook.com/v19.0/ig_user_id?username={username}&access_token={INSTAGRAM_ACCESS_TOKEN}"
+        response = requests.get(url)
+        response.raise_for_status()
+        user_id = response.json()["id"]
+
+        # دریافت اطلاعات پروفایل
+        url = f"https://graph.facebook.com/{user_id}?fields=username,followers_count,follows_count,media_count&access_token={INSTAGRAM_ACCESS_TOKEN}"
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+
+        return {
+            "username": data["username"],
+            "followers": data["followers_count"],
+            "followees": data["follows_count"],
+            "posts": data["media_count"]
+        }
+    except requests.RequestException as e:
+        logging.error(f"خطا در دریافت اطلاعات پروفایل {username} از طریق API: {e}")
+        return None
+    except KeyError:
+        logging.error(f"پاسخ API برای پروفایل {username} معتبر نیست.")
+        return None
+
 
 def run_analysis():
     """اجرای کامل فرآیند تحلیل رقبا."""
@@ -65,38 +82,11 @@ def run_analysis():
         if title:
             website_data.append({"url": url, "title": title})
 
-    # تحلیل اینستاگرام با لاگین
+    # تحلیل اینستاگرام
     logging.info("شروع تحلیل پروفایل‌های اینستاگرام رقبا...")
-    L = instaloader.Instaloader(
-        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-        compress_json=False
-    )
-
-    is_logged_in = False
-    try:
-        if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD:
-            logging.info(f"در حال لاگین به اینستاگرام با حساب کاربری: {INSTAGRAM_USERNAME}")
-            try:
-                L.load_session_from_file(INSTAGRAM_USERNAME)
-                logging.info("لاگین از طریق سشن موفقیت‌آمیز بود.")
-                is_logged_in = True
-            except FileNotFoundError:
-                logging.warning("فایل سشن اینستاگرام یافت نشد. تلاش برای لاگین با رمز عبور...")
-                L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-                L.save_session_to_file(INSTAGRAM_USERNAME)
-                logging.info("لاگین با رمز عبور موفقیت‌آمیز بود و سشن ذخیره شد.")
-                is_logged_in = True
-        else:
-            logging.warning("نام کاربری یا رمز عبور اینستاگرام در فایل config.py ارائه نشده است.")
-    except Exception as e:
-        logging.error(f"خطا در لاگین به اینستاگرام: {e}")
-
-    if not is_logged_in:
-        logging.error("امکان لاگین به اینستاگرام وجود ندارد. تحلیل اینستاگرام ممکن است با خطا مواجه شود.")
-
     instagram_data = []
     for username in COMPETITOR_INSTAGRAMS:
-        profile_data = get_instagram_profile_data(username, L)
+        profile_data = get_instagram_profile_data(username)
         if profile_data:
             instagram_data.append(profile_data)
 
