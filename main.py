@@ -20,7 +20,7 @@ from woocommerce_api import WC_API_URL, WC_CONSUMER_KEY, WC_CONSUMER_SECRET
 
 # --- وارد کردن ماژول‌های پروژه ---
 import asyncio
-from config import TELEGRAM_BOT_TOKEN, INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD, PROXY_URL
+from config import TELEGRAM_BOT_TOKEN, PROXY_URL, OLLAMA_HOST
 from telegram.request import HTTPXRequest
 
 # ماژول‌های پروژه
@@ -200,7 +200,7 @@ async def health_check_command(update: Update, context: ContextTypes.DEFAULT_TYP
     # بررسی Ollama
     ollama_status = "❌ قطع"
     try:
-        client = ollama.Client(host='http://localhost:11434')
+        client = ollama.Client(host=OLLAMA_HOST)
         client.list()
         ollama_status = "✅ متصل"
     except Exception as e:
@@ -229,7 +229,7 @@ async def llm_chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['history'] = history[-10:]
 
     try:
-        client = ollama.Client(host='http://localhost:11434')
+        client = ollama.Client(host=OLLAMA_HOST)
         response = client.chat(model='llama3:latest', messages=history)
         ai_response = response['message']['content']
         history.append({'role': 'assistant', 'content': ai_response})
@@ -257,7 +257,7 @@ async def analyze_competitors_command(update: Update, context: ContextTypes.DEFA
 
         await update.message.reply_text("داده‌ها جمع‌آوری شد. در حال ارسال به مدل هوش مصنوعی برای دریافت پیشنهاد...")
         prompt = f"من یک فروشگاه لوازم تحریر آنلاین به نام 'تحریرچی شاپ' دارم. اطلاعات زیر از رقبای من جمع‌آوری شده است: {results}. بر اساس این داده‌ها، یک پیشنهاد اولیه و کلی برای بهبود وضعیت کسب‌وکار من ارائه بده."
-        client = ollama.Client(host='http://localhost:11434')
+        client = ollama.Client(host=OLLAMA_HOST)
         ollama_response = client.chat(model='llama3:latest', messages=[{'role': 'user', 'content': prompt}])
         suggestion = ollama_response['message']['content']
         final_response = response_text + "\n\n💡 **پیشنهاد هوش مصنوعی:**\n" + suggestion
