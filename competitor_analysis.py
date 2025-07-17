@@ -82,15 +82,15 @@ def run_analysis():
         if title:
             website_data.append({"url": url, "title": title})
 
-    # تحلیل اینستاگرام
-    logging.info("شروع تحلیل پروفایل‌های اینستاگرام رقبا...")
-    instagram_data = []
-    for username in COMPETITOR_INSTAGRAMS:
-        profile_data = get_instagram_profile_data(username)
-        if profile_data:
-            instagram_data.append(profile_data)
+    # # تحلیل اینستاگرام
+    # logging.info("شروع تحلیل پروفایل‌های اینستاگرام رقبا...")
+    # instagram_data = []
+    # for username in COMPETITOR_INSTAGRAMS:
+    #     profile_data = get_instagram_profile_data(username)
+    #     if profile_data:
+    #         instagram_data.append(profile_data)
 
     return {
         "websites": website_data,
-        "instagrams": instagram_data
+        "instagrams": []
     }
