@@ -29,7 +29,7 @@ COMPETITOR_INSTAGRAMS = [
 def get_website_title(url):
     """دریافت عنوان یک وب‌سایت"""
     try:
-        response = requests.get(url, timeout=15)
+        response = requests.get(url, timeout=15, verify=False)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
         return soup.title.string.strip() if soup.title else "بدون عنوان"
