@@ -30,11 +30,13 @@ TEMP_IMAGE_DIR = "temp_images"
 if not os.path.exists(TEMP_IMAGE_DIR):
     os.makedirs(TEMP_IMAGE_DIR)
 
+import asyncio
+
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    level=logging.DEBUG # <--- تغییر سطح لاگ به DEBUG
 )
-logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.INFO)
 logging.getLogger("instaloader").setLevel(logging.INFO)
 
 
@@ -256,10 +258,17 @@ async def analyze_competitors_command(update: Update, context: ContextTypes.DEFA
         await update.message.reply_text("متاسفانه در فرآیند تحلیل خطایی رخ داد.")
 
 
-def main():
+async def main():
     """راه‌اندازی و اجرای ربات تلگرام."""
     print("در حال ساخت اپلیکیشن ربات...")
     application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+
+    # پاک کردن آپدیت‌های در صف
+    print("در حال پاک‌سازی آپدیت‌های در صف...")
+    await application.bot.delete_webhook(drop_pending_updates=True)
+    await application.bot.get_updates(offset=-1, timeout=1)
+    print("آپدیت‌ها پاک‌سازی شدند.")
+
 
     # ثبت دستورات
     application.add_handler(CommandHandler('start', start_command))
@@ -276,4 +285,4 @@ def main():
     application.run_polling()
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
