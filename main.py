@@ -302,7 +302,31 @@ async def main():
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), llm_chat_handler))
 
     print("ربات با موفقیت شروع به کار کرد... برای توقف Ctrl+C را بزنید.")
-    application.run_polling()
+
+    # application.run_polling() -> این متد به تنهایی یک لوپ جدید ایجاد می‌کند و باعث تداخل می‌شود
+
+    # راه حل جدید: کنترل دستی چرخه حیات اپلیکیشن
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
+
+    # ربات را تا زمانی که متوقف شود (مثلاً با Ctrl+C) در حال اجرا نگه می‌داریم
+    try:
+        while True:
+            await asyncio.sleep(3600) # یک ساعت می‌خوابد، اما سیگنال‌ها آن را بیدار می‌کنند
+    except (KeyboardInterrupt, SystemExit):
+        await application.updater.stop()
+        await application.stop()
+        await application.shutdown()
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    # چون main خودش یک لوپ را مدیریت می‌کند، دیگر نیازی به asyncio.run() نیست
+    # مستقیم تابع را فراخوانی می‌کنیم
+    try:
+        asyncio.run(main())
+    except RuntimeError as e:
+        if "Cannot close a running event loop" in str(e):
+            # این خطا در زمان خاموش کردن با Ctrl+C در ویندوز طبیعی است
+            logging.warning("Event loop was already closed. This is normal on Windows when stopping.")
+        else:
+            raise
