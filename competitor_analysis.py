@@ -4,8 +4,6 @@ from bs4 import BeautifulSoup
 import requests
 import logging
 
-from config import INSTAGRAM_ACCESS_TOKEN
-
 # تنظیمات لاگ‌گیری
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
