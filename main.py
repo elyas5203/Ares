@@ -200,7 +200,8 @@ async def health_check_command(update: Update, context: ContextTypes.DEFAULT_TYP
     # بررسی Ollama
     ollama_status = "❌ قطع"
     try:
-        ollama.list()
+        client = ollama.Client(host='http://localhost:11434')
+        client.list()
         ollama_status = "✅ متصل"
     except Exception as e:
         logging.error(f"Health Check - Ollama Error: {e}")
@@ -228,7 +229,8 @@ async def llm_chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['history'] = history[-10:]
 
     try:
-        response = ollama.chat(model='llama3:latest', messages=history)
+        client = ollama.Client(host='http://localhost:11434')
+        response = client.chat(model='llama3:latest', messages=history)
         ai_response = response['message']['content']
         history.append({'role': 'assistant', 'content': ai_response})
         context.user_data['history'] = history[-10:]
@@ -255,7 +257,8 @@ async def analyze_competitors_command(update: Update, context: ContextTypes.DEFA
 
         await update.message.reply_text("داده‌ها جمع‌آوری شد. در حال ارسال به مدل هوش مصنوعی برای دریافت پیشنهاد...")
         prompt = f"من یک فروشگاه لوازم تحریر آنلاین به نام 'تحریرچی شاپ' دارم. اطلاعات زیر از رقبای من جمع‌آوری شده است: {results}. بر اساس این داده‌ها، یک پیشنهاد اولیه و کلی برای بهبود وضعیت کسب‌وکار من ارائه بده."
-        ollama_response = ollama.chat(model='llama3:latest', messages=[{'role': 'user', 'content': prompt}])
+        client = ollama.Client(host='http://localhost:11434')
+        ollama_response = client.chat(model='llama3:latest', messages=[{'role': 'user', 'content': prompt}])
         suggestion = ollama_response['message']['content']
         final_response = response_text + "\n\n💡 **پیشنهاد هوش مصنوعی:**\n" + suggestion
         await update.message.reply_text(final_response, parse_mode='Markdown')
