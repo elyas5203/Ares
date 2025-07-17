@@ -52,8 +52,10 @@ def get_instagram_profile_data(username, L):
         logging.error(f"خطا در دریافت اطلاعات پروفایل {username}: {e}")
         return None
 
-def run_analysis(username, password):
-    """اجرای کامل فرآیند تحلیل رقبا با استفاده از اطلاعات لاگین."""
+from config import INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD
+
+def run_analysis():
+    """اجرای کامل فرآیند تحلیل رقبا."""
 
     # تحلیل وب‌سایت‌ها
     logging.info("شروع تحلیل وب‌سایت‌های رقبا...")
@@ -72,20 +74,20 @@ def run_analysis(username, password):
 
     is_logged_in = False
     try:
-        if username and password:
-            logging.info(f"در حال لاگین به اینستاگرام با حساب کاربری: {username}")
+        if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD:
+            logging.info(f"در حال لاگین به اینستاگرام با حساب کاربری: {INSTAGRAM_USERNAME}")
             try:
-                L.load_session_from_file(username)
+                L.load_session_from_file(INSTAGRAM_USERNAME)
                 logging.info("لاگین از طریق سشن موفقیت‌آمیز بود.")
                 is_logged_in = True
             except FileNotFoundError:
                 logging.warning("فایل سشن اینستاگرام یافت نشد. تلاش برای لاگین با رمز عبور...")
-                L.login(username, password)
-                L.save_session_to_file(username)
+                L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+                L.save_session_to_file(INSTAGRAM_USERNAME)
                 logging.info("لاگین با رمز عبور موفقیت‌آمیز بود و سشن ذخیره شد.")
                 is_logged_in = True
         else:
-            logging.warning("نام کاربری یا رمز عبور اینستاگرام ارائه نشده است.")
+            logging.warning("نام کاربری یا رمز عبور اینستاگرام در فایل config.py ارائه نشده است.")
     except Exception as e:
         logging.error(f"خطا در لاگین به اینستاگرام: {e}")
 

@@ -18,25 +18,32 @@ from competitor_analysis import run_analysis
 from woocommerce_api import WC_API_URL, WC_CONSUMER_KEY, WC_CONSUMER_SECRET
 
 
-# --- توکن ربات تلگرام ---
-TELEGRAM_BOT_TOKEN = "7557627836:AAEgfoM8VVZqwbblTSFLMeLRJUYieAMKrzI"
+# --- وارد کردن ماژول‌های پروژه ---
+import asyncio
+from config import TELEGRAM_BOT_TOKEN, INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD, PROXY_URL
+from telegram.request import HTTPXRequest
 
-# --- اطلاعات لاگین اینستاگرام ---
-INSTAGRAM_USERNAME = "@test.elyas"
-INSTAGRAM_PASSWORD = "Elyas_5203"
+# ماژول‌های پروژه
+# فایل‌های ووکامرس و مدیریت محصول
+from woocommerce_api import get_product_categories
+from product_manager import handle_new_product_submission
+# فایل تحلیل رقبا
+from competitor_analysis import run_analysis
+# فایل‌های تنظیمات
+from woocommerce_api import WC_API_URL, WC_CONSUMER_KEY, WC_CONSUMER_SECRET
+
 
 # --- تنظیمات کلی ---
 TEMP_IMAGE_DIR = "temp_images"
 if not os.path.exists(TEMP_IMAGE_DIR):
     os.makedirs(TEMP_IMAGE_DIR)
 
-import asyncio
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.DEBUG # <--- تغییر سطح لاگ به DEBUG
+    level=logging.DEBUG
 )
-logging.getLogger("httpx").setLevel(logging.INFO)
+logging.getLogger("httpx").setLevel(logging.WARNING) # لاگ‌های اضافی رو کم می‌کنیم
 logging.getLogger("instaloader").setLevel(logging.INFO)
 
 
@@ -237,8 +244,7 @@ async def analyze_competitors_command(update: Update, context: ContextTypes.DEFA
     """دستور شروع تحلیل رقبا."""
     await update.message.reply_text("شروع فرآیند تحلیل رقبا... این ممکن است چند دقیقه طول بکشد.")
     try:
-        # پاس دادن اطلاعات لاگین به تابع
-        results = run_analysis(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+        results = run_analysis()
         response_text = "📊 **نتایج اولیه تحلیل رقبا** 📊\n\n"
         response_text += "🌐 **وب‌سایت‌ها:**\n"
         for site in results.get('websites', []):
@@ -261,13 +267,27 @@ async def analyze_competitors_command(update: Update, context: ContextTypes.DEFA
 async def main():
     """راه‌اندازی و اجرای ربات تلگرام."""
     print("در حال ساخت اپلیکیشن ربات...")
-    application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+
+    # تنظیمات پروکسی
+    request = None
+    if PROXY_URL:
+        print(f"استفاده از پروکسی: {PROXY_URL}")
+        request = HTTPXRequest(proxy_url=PROXY_URL)
+
+    application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).request(request).build()
 
     # پاک کردن آپدیت‌های در صف
-    print("در حال پاک‌سازی آپدیت‌های در صف...")
-    await application.bot.delete_webhook(drop_pending_updates=True)
-    await application.bot.get_updates(offset=-1, timeout=1)
-    print("آپدیت‌ها پاک‌سازی شدند.")
+    try:
+        print("در حال پاک‌سازی آپدیت‌های در صف...")
+        await application.bot.delete_webhook(drop_pending_updates=True)
+        # get_updates برای اطمینان از خوانده شدن آخرین آپدیت‌ها قبل از شروع polling
+        updates = await application.bot.get_updates(offset=-1, timeout=1)
+        if updates:
+            # آخرین آپدیت را به عنوان offset بعدی در نظر می‌گیریم تا تکراری دریافت نشود
+            await application.bot.get_updates(offset=updates[-1].update_id + 1, timeout=1)
+        print("آپدیت‌ها پاک‌سازی شدند.")
+    except Exception as e:
+        logging.warning(f"عدم امکان پاک‌سازی آپدیت‌های قبلی (ممکن است به دلیل اولین اجرا یا مشکلات شبکه باشد): {e}")
 
 
     # ثبت دستورات
